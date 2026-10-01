@@ -28,8 +28,8 @@ La web oficial (euro-millions.com) no era accesible desde el entorno de trabajo,
 ## Conclusiones del análisis
 
 - Cada combinación tiene una probabilidad de 1 entre 139.838.160.
-- Frecuencias de los 50 números: χ² = 54,7, p = 0,27. Estrellas (desde 2016): p = 0,22. Ambas son compatibles con un sorteo perfectamente aleatorio.
-- Backtest sobre 1.478 sorteos: elegir los 5 números más frecuentes antes de cada sorteo da 0,498 aciertos de media; los «calientes» de los últimos 50, 0,481; los fríos, 0,473; el azar, 0,5 esperado.
+- Frecuencias de los 50 números: χ² = 59,6 (49 gl), p = 0,14. Estrellas (desde 2016): p = 0,15. Ambas son compatibles con un sorteo perfectamente aleatorio. El estadístico lleva la corrección por extracción sin reemplazo, factor (N−n)/(N−1); sin ella los p-valores salen inflados (0,27 y 0,22).
+- Backtest sobre 1.478 sorteos: elegir los 5 números más frecuentes antes de cada sorteo da 0,499 aciertos de media; los «calientes» de los últimos 50, 0,478; los fríos, 0,474. El valor esperado por azar es exactamente 0,5 (hipergeométrica), con IC 95 % de ±0,033: ninguna estrategia se distingue del azar.
 - Ninguna combinación ganadora completa se ha repetido.
 
 El selector ordena por parecido con el histórico, no por probabilidad real. El criterio que sí mejora el premio esperado es evitar combinaciones populares (fechas, series, terminaciones repetidas), porque reduce la probabilidad de compartir el bote.

@@ -68,11 +68,18 @@ def chi2_sf(x, k):
     return math.exp(-x2 + a * math.log(x2) - math.lgamma(a)) * h
 
 
-def chi2_uniforme(conteos, categorias):
+def chi2_uniforme(conteos, categorias, por_sorteo):
+    """Test de uniformidad. Las `por_sorteo` bolas de cada sorteo se extraen SIN reemplazo,
+    así que los conteos tienen varianza (N-n)/(N-1) veces la multinomial; el estadístico
+    se reescala por el inverso de ese factor para que siga ~ chi2(N-1) bajo H0."""
+    N = len(categorias)
     total = sum(conteos.get(c, 0) for c in categorias)
-    esperado = total / len(categorias)
+    esperado = total / N
     x = sum((conteos.get(c, 0) - esperado) ** 2 / esperado for c in categorias)
-    return {"chi2": round(x, 2), "gl": len(categorias) - 1, "p": round(chi2_sf(x, len(categorias) - 1), 4)}
+    fpc = (N - por_sorteo) / (N - 1)
+    xc = x / fpc
+    return {"chi2_multinomial": round(x, 2), "chi2_corregido": round(xc, 2), "gl": N - 1,
+            "p_multinomial": round(chi2_sf(x, N - 1), 4), "p": round(chi2_sf(xc, N - 1), 4)}
 
 
 def forma(n):
@@ -106,7 +113,10 @@ def backtest(sorteos, inicio=500):
             n += 1
         acum.update(d["n"])
         ventana.append(d["n"])
-    return {"sorteos_probados": n, "esperado_por_azar": 0.5,
+    # Aciertos por sorteo ~ hipergeométrica(50, 5, 5): media 0.5, varianza 5*0.1*0.9*45/49
+    se = math.sqrt(5 * 0.1 * 0.9 * 45 / 49 / n)
+    return {"sorteos_probados": n, "esperado_por_azar": 0.5, "error_estandar": round(se, 4),
+            "ic95_semiancho": round(1.96 * se, 4),
             **{k: round(v / n, 4) for k, v in res.items()}}
 
 
@@ -153,8 +163,8 @@ def main():
         "retraso_numeros": retraso_n,
         "retraso_estrellas": retraso_s,
         "top_pares_estrellas": [[list(p), c] for p, c in pares_est.most_common(10)],
-        "chi2_numeros": chi2_uniforme(fn, range(1, 51)),
-        "chi2_estrellas_era12": chi2_uniforme(fs, range(1, 13)),
+        "chi2_numeros": chi2_uniforme(fn, range(1, 51), 5),
+        "chi2_estrellas_era12": chi2_uniforme(fs, range(1, 13), 2),
         "suma": {"media": round(sum(sumas) / len(sumas), 1), "p10": sumas[len(sumas) // 10],
                  "p90": sumas[9 * len(sumas) // 10], "min": sumas[0], "max": sumas[-1]},
         "dist_pares": dict(sorted(dist["pares"].items())),

@@ -348,14 +348,18 @@
   ]
  ],
  "chi2_numeros": {
-  "chi2": 54.71,
+  "chi2_multinomial": 54.71,
+  "chi2_corregido": 59.58,
   "gl": 49,
-  "p": 0.2667
+  "p_multinomial": 0.2667,
+  "p": 0.1432
  },
  "chi2_estrellas_era12": {
-  "chi2": 14.29,
+  "chi2_multinomial": 14.29,
+  "chi2_corregido": 15.72,
   "gl": 11,
-  "p": 0.2171
+  "p_multinomial": 0.2171,
+  "p": 0.1517
  },
  "suma": {
   "media": 127.5,
@@ -398,6 +402,8 @@
  "backtest": {
   "sorteos_probados": 1478,
   "esperado_por_azar": 0.5,
+  "error_estandar": 0.0167,
+  "ic95_semiancho": 0.0328,
   "calientes_historico": 0.4993,
   "calientes_ultimos50": 0.4783,
   "frios_historico": 0.4736,

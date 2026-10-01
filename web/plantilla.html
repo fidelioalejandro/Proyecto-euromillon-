@@ -150,7 +150,7 @@ td.rank { font: 700 1.15rem var(--f-display); color: var(--muted); width: 48px }
       <div class="controls">
         <div class="ctl"><label for="wF">Frecuencia histórica</label><output id="oF"></output><input type="range" id="wF" min="0" max="100" value="50"><small>Premia los números y estrellas que más han salido desde 2004 (estrellas: desde 2016, con 12).</small></div>
         <div class="ctl"><label for="wR">Tendencia reciente</label><output id="oR"></output><input type="range" id="wR" min="0" max="100" value="30"><small>Premia los que más han salido en los últimos sorteos.</small></div>
-        <div class="ctl"><label for="wD">Retraso</label><output id="oD"></output><input type="range" id="wD" min="0" max="100" value="10"><small>Premia los que llevan más sorteos sin salir.</small></div>
+        <div class="ctl"><label for="wD">Retraso (falacia del jugador)</label><output id="oD"></output><input type="range" id="wD" min="0" max="100" value="0"><small>Premia los que llevan más sorteos sin salir. Cada sorteo es independiente de los anteriores: un número «atrasado» no tiene más probabilidad. Está a 0 por defecto; súbelo solo si quieres ese sesgo.</small></div>
         <div class="ctl"><label for="wS">Forma típica</label><output id="oS"></output><input type="range" id="wS" min="0" max="100" value="60"><small>Suma, pares/impares, bajos/altos, decenas y consecutivos parecidos a los sorteos reales.</small></div>
         <div class="ctl"><label for="wP">Evitar combinaciones populares</label><output id="oP"></output><input type="range" id="wP" min="0" max="100" value="40"><small>Penaliza fechas (todo ≤31), series, mismas terminaciones y múltiplos de 5. No cambia la probabilidad de acertar, pero sí cuánto cobrarías.</small></div>
         <div class="row">
@@ -193,6 +193,14 @@ td.rank { font: 700 1.15rem var(--f-display); color: var(--muted); width: 48px }
       <li><b>Combinación.</b> Cada criterio se normaliza contra 20.000 combinaciones al azar y se suma con tus pesos. Se evalúan las 2.118.760 combinaciones de 5 números posibles y se eligen las mejores, limitando cuántos números pueden compartir entre sí para que la lista sea variada. A cada una se le asignan las mejores parejas de estrellas, sin repetir demasiado ninguna.</li>
       <li><b>Índice 0–100.</b> 0 equivale a una combinación media al azar y 100 a la mejor encontrada con tus criterios.</li>
     </ol>
+    <h3>Límites del método</h3>
+    <ul>
+      <li><b>Independencia.</b> Cada sorteo es una extracción uniforme sin reemplazo, independiente de las anteriores. Frecuencia, tendencia y retraso describen el pasado; ninguno cambia la probabilidad futura, y el backtest de arriba lo comprueba.</li>
+      <li><b>Forma.</b> La puntuación de forma suma los logaritmos de la frecuencia de cada rasgo como si fueran independientes (no lo son: la suma y la cuenta de bajos están correlacionadas). Es una medida de parecido con el histórico, no una probabilidad. Las formas «típicas» son frecuentes porque hay más combinaciones con esa forma, no porque cada una sea más probable.</li>
+      <li><b>Popularidad.</b> Es una heurística (fechas, series, terminaciones, múltiplos de 5, el 7), no un modelo ajustado con datos reales de apuestas, que las loterías no publican.</li>
+      <li><b>Estrellas.</b> Su puntuación se estandariza aparte y entra con un peso fijo de 0,6 unidades; sirve para ordenar parejas, no para compararlas con los números.</li>
+      <li><b>Test χ².</b> Las 5 bolas de un sorteo se extraen sin reemplazo, lo que reduce la varianza de los conteos en (N−n)/(N−1) = 45/49. El estadístico se reescala por ese factor (y por 10/11 en las estrellas); sin la corrección los p-valores salen inflados (0,27 y 0,22 en vez de 0,14 y 0,15).</li>
+    </ul>
     <p class="muted" style="max-width:80ch;font-size:.9rem">Lo que dice el análisis: las frecuencias de números (χ² p = <span id="pN"></span>) y estrellas (p = <span id="pS"></span>) son compatibles con un sorteo perfectamente aleatorio, y elegir los números más frecuentes antes de cada sorteo acierta lo mismo que elegir al azar. Úsalo para elegir combinaciones con criterio y evitar las más jugadas, no como garantía de premio. Juega con moderación.</p>
   </section>
 </div>
@@ -230,7 +238,9 @@ function chi2sf(x, k) {
   return Math.exp(-x2 + a * Math.log(x2) - lg) * h;
 }
 function lgamma(x) { const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, .1208650973866179e-2, -.5395239384953e-5]; let y = x, t = x + 5.5; t -= (x + .5) * Math.log(t); let s = 1.000000000190015; for (const c of g) s += c / ++y; return -t + Math.log(2.5066282746310005 * s / x); }
-function chi(c, from, to) { const v = c.slice(from, to + 1), e = v.reduce((a, b) => a + b, 0) / v.length; const x = v.reduce((a, b) => a + (b - e) ** 2 / e, 0); return chi2sf(x, v.length - 1); }
+// Uniformity test. The `perDraw` balls of each draw are sampled WITHOUT replacement, so the
+// counts have (N-n)/(N-1) times the multinomial variance; rescale so the statistic is ~chi2(N-1) under H0.
+function chi(c, from, to, perDraw) { const v = c.slice(from, to + 1), N = v.length, e = v.reduce((a, b) => a + b, 0) / N; const x = v.reduce((a, b) => a + (b - e) ** 2 / e, 0) * (N - 1) / (N - perDraw); return chi2sf(x, N - 1); }
 
 // Shape features
 function shape(n) {
@@ -276,7 +286,7 @@ function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let
 const SAMPLE = (() => { const r = rng(2004), out = []; for (let i = 0; i < 20000; i++) { const set = new Set(); while (set.size < 5) set.add(1 + (r() * 50 | 0)); out.push([...set].sort((a, b) => a - b)); } return out; })();
 
 /* ---------- State ---------- */
-const DEF = { wF: 50, wR: 30, wD: 10, wS: 60, wP: 40, nRec: "200", nOut: "100", maxSh: "3" };
+const DEF = { wF: 50, wR: 30, wD: 0, wS: 60, wP: 40, nRec: "200", nOut: "100", maxSh: "3" };
 const numSt = new Array(51).fill(0), starSt = new Array(13).fill(0);
 let picked = new Set();
 try { picked = new Set(JSON.parse(localStorage.getItem("em-picked") || "[]")); } catch (e) {}
@@ -466,20 +476,23 @@ function backtest() {
     }
     for (const v of d.n) acc[v]++;
   });
-  return { n, hot: res.hot / n, rec: res.rec / n, cold: res.cold / n, rnd: res.rnd / n };
+  // hits per draw ~ Hypergeometric(50, 5, 5): mean 0.5, variance 5·0.1·0.9·45/49
+  const se = Math.sqrt(5 * .1 * .9 * 45 / 49 / n);
+  return { n, se, ci: 1.96 * se, hot: res.hot / n, rec: res.rec / n, cold: res.cold / n, rnd: res.rnd / n };
 }
 
 function analysis() {
   const first = draws[0].d, last = draws[draws.length - 1];
   $("rango").textContent = `${fmt(draws.length)} sorteos · ${fdate(first)} – ${fdate(last.d)}`;
-  const pN = chi(fN, 1, 50), pS = chi(fS, 1, 12), bt = backtest();
+  const pN = chi(fN, 1, 50, 5), pS = chi(fS, 1, 12, 2), bt = backtest();
   const seen = new Set(), seenFull = new Set(); let rep5 = 0, repFull = 0;
   for (const d of draws) { const a = [...d.n].sort((x, y) => x - y).join(), b = a + "|" + [...d.s].sort((x, y) => x - y).join(); if (seen.has(a)) rep5++; if (seenFull.has(b)) repFull++; seen.add(a); seenFull.add(b); }
   $("facts").innerHTML = [
     [fmt(draws.length), `sorteos analizados, del ${fdate(first)} al ${fdate(last.d)}`],
     [`${last.n.join(" ")} ★ ${last.s.join(" ")}`, `último sorteo (${fdate(last.d)})`],
-    [`p = ${fmt(pN, 2)}`, "χ² de los 50 números: compatible con azar puro (p > 0,05)"],
-    [`${fmt(bt.hot, 3)} vs ${fmt(.5, 3)}`, `aciertos medios por sorteo eligiendo los 5 más frecuentes frente al azar (${fmt(bt.n)} sorteos)`],
+    [`p = ${fmt(pN, 2)}`, "χ² de los 50 números, corregido por extracción sin reemplazo: compatible con azar puro (p > 0,05)"],
+    [`${fmt(bt.hot, 3)} ± ${fmt(bt.ci, 3)}`, `aciertos medios por sorteo eligiendo los 5 más frecuentes (IC 95 %, ${fmt(bt.n)} sorteos). El azar da exactamente 0,500`],
+    [`1 entre ${fmt(Math.round(comb(50, 5) * 66 / 100))}`, "probabilidad de llevarte el bote jugando las 100 combinaciones de la lista (100 × 1/139.838.160)"],
     [repFull ? fmt(repFull) : "0", `combinaciones ganadoras completas repetidas en ${new Date(last.d).getFullYear() - 2003} años (los 5 números sí se han repetido ${rep5 === 1 ? "1 vez" : rep5 + " veces"}, con otras estrellas)`],
   ].map(([b, s]) => `<div class="fact"><b>${b}</b><span>${s}</span></div>`).join("");
   $("pN").textContent = fmt(pN, 2); $("pS").textContent = fmt(pS, 2);
@@ -488,14 +501,14 @@ function analysis() {
   const mean = fN.slice(1).reduce((a, b) => a + b, 0) / 50;
   const order = Array.from({ length: 50 }, (_, k) => k + 1).sort((a, b) => fN[b] - fN[a]);
   const top3 = order.slice(0, 3), bot3 = order.slice(-3);
-  $("capN").textContent = `Media ${fmt(mean, 1)} veces. Más: ${top3.map(k => `${k} (${fN[k]})`).join(", ")}. Menos: ${bot3.map(k => `${k} (${fN[k]})`).join(", ")}. Las diferencias están dentro de lo esperable por azar (p = ${fmt(pN, 2)}).`;
+  $("capN").textContent = `Media ${fmt(mean, 1)} veces. Más: ${top3.map(k => `${k} (${fN[k]})`).join(", ")}. Menos: ${bot3.map(k => `${k} (${fN[k]})`).join(", ")}. Las diferencias están dentro de lo esperable por azar (χ² con corrección por muestreo sin reemplazo, p = ${fmt(pN, 2)}).`;
   const lab = Array.from({ length: 50 }, (_, k) => k + 1);
   barChart($("chN"), lab, fN.slice(1), { min: Math.floor(Math.min(...fN.slice(1)) * .9 / 10) * 10, step: 20, every: 5, ref: mean, refLabel: "media", aria: "Frecuencia de cada número",
     color: (i, v) => top3.includes(i + 1) ? "var(--blue)" : bot3.includes(i + 1) ? "var(--muted)" : "color-mix(in srgb, var(--blue) 55%, var(--line))" });
   const sm = fS.slice(1).reduce((a, b) => a + b, 0) / 12;
   $("capS").textContent = `Desde el ${fdate(ERA12)}. Media ${fmt(sm, 1)} veces; la pareja más repetida es ${(() => { const c = {}; for (const d of era12) { const k = [...d.s].sort((a, b) => a - b).join("–"); c[k] = (c[k] || 0) + 1; } const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return `${t[0]} (${t[1]} veces)`; })()}. p = ${fmt(pS, 2)}.`;
   barChart($("chS"), Array.from({ length: 12 }, (_, k) => k + 1), fS.slice(1), { min: 0, step: 50, labelAll: true, valueLabels: true, ref: sm, refLabel: "media", aria: "Frecuencia de cada estrella", color: () => "var(--gold)" });
-  $("capB").textContent = `Antes de cada uno de los últimos ${fmt(bt.n)} sorteos se eligieron 5 números con cada estrategia y se contaron los aciertos. El azar da 0,5 aciertos de media; ninguna estrategia lo supera de forma significativa.`;
+  $("capB").textContent = `Antes de cada uno de los últimos ${fmt(bt.n)} sorteos se eligieron 5 números con cada estrategia y se contaron los aciertos. El azar da 0,5 aciertos de media; ninguna estrategia se sale del intervalo de confianza del 95 % (0,5 ± ${fmt(bt.ci, 3)}), es decir, ninguna distingue del azar.`;
   barChart($("chB"), ["Más frecuentes", "Calientes (50)", "Fríos", "Al azar"], [bt.hot, bt.rec, bt.cold, bt.rnd], { min: 0, max: .6, step: .1, labelAll: true, valueLabels: true, tf: v => fmt(v, 2), ref: .5, refLabel: "esperado por azar 0,50", aria: "Backtest de estrategias", lblClass: "lbl" });
   const bins = new Array(19).fill(0); for (const s of shapes) bins[Math.min(18, Math.max(0, (s.sum - 30) / 10 | 0))]++;
   const ss = shapes.map(s => s.sum).sort((a, b) => a - b);
