@@ -1,0 +1,529 @@
+<title>Selector EuroMillones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: boleto (ticket) on the left as the control surface, ranked list on the right; analysis below. */
+:root {
+  --bg: #EDF0F6; --paper: #FFFFFF; --ink: #111A30; --muted: #56627E; --line: #D3DAE7;
+  --blue: #1C46C4; --blue-soft: #E3EAFB; --gold: #F2B705; --gold-ink: #7A5600;
+  --good: #1D7F55; --bad: #B73A33; --heat: 28, 70, 196;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0A1120; --paper: #111A2E; --ink: #E6EBF6; --muted: #95A2BF; --line: #263250;
+  --blue: #86A2FF; --blue-soft: #1B2747; --gold: #F4C542; --gold-ink: #F4C542;
+  --good: #4CC48E; --bad: #F07A70; --heat: 134, 162, 255; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0A1120; --paper: #111A2E; --ink: #E6EBF6; --muted: #95A2BF; --line: #263250;
+  --blue: #86A2FF; --blue-soft: #1B2747; --gold: #F4C542; --gold-ink: #F4C542;
+  --good: #4CC48E; --bad: #F07A70; --heat: 134, 162, 255; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 96px; display: grid; gap: 28px }
+h1, h2, h3 { font-family: var(--f-display); text-transform: uppercase; letter-spacing: .01em; line-height: 1; margin: 0; text-wrap: balance }
+h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800 }
+h2 { font-size: 1.7rem; font-weight: 800 }
+h3 { font-size: 1.2rem; font-weight: 700 }
+p { margin: 0 }
+.muted { color: var(--muted) }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums }
+.eyebrow { font: 600 .72rem/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+
+header { display: grid; gap: 12px }
+header .lead { max-width: 68ch; color: var(--muted) }
+.odds { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; padding: 14px 18px; border: 1.5px dashed var(--line); border-radius: 10px; background: var(--paper) }
+.odds strong { font: 700 1.5rem/1 var(--f-mono) }
+.odds p { flex: 1 1 320px; min-width: 0; color: var(--muted); font-size: .92rem }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px }
+.fact { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; align-content: start }
+.fact b { font: 600 1.6rem/1.1 var(--f-mono) }
+.fact span { font-size: .86rem; color: var(--muted) }
+
+.main { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 24px; align-items: start }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr) } }
+
+/* Boleto */
+.boleto { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px) }
+@media (max-width: 900px) { .boleto { position: static } }
+.boleto-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap }
+.grid50 { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px }
+.grid12 { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 260px }
+.cell { appearance: none; border: 1px solid var(--line); border-radius: 6px; aspect-ratio: 1; max-width: 100%; display: grid; place-items: center;
+  font: 600 .82rem/1 var(--f-mono); color: var(--ink); cursor: pointer; position: relative; padding: 0;
+  background: rgba(var(--heat), var(--h, 0)) }
+.cell:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px }
+.cell[data-st="1"] { background: var(--blue); color: var(--paper); border-color: var(--blue) }
+.cell[data-st="-1"] { background: transparent; color: var(--muted); text-decoration: line-through; border-style: dashed }
+.cell.star { border-color: color-mix(in srgb, var(--gold) 60%, var(--line)); background: color-mix(in srgb, var(--gold) calc(var(--h, 0) * 100%), transparent) }
+.cell.star[data-st="1"] { background: var(--gold); color: #1A1300; border-color: var(--gold) }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; color: var(--muted) }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--line) }
+
+.controls { display: grid; gap: 12px }
+.ctl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center }
+.ctl label { font-weight: 600; font-size: .9rem }
+.ctl output { font: 600 .85rem var(--f-mono); color: var(--blue) }
+.ctl small { grid-column: 1 / -1; color: var(--muted); font-size: .78rem; line-height: 1.35 }
+.ctl input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--blue) }
+.row { display: flex; gap: 10px; flex-wrap: wrap }
+.row > div { flex: 1 1 100px; display: grid; gap: 4px; min-width: 0 }
+.row label { font-size: .78rem; font-weight: 600; color: var(--muted) }
+select, .btn { font: 600 .9rem var(--f-body); color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px }
+.btn { cursor: pointer }
+.btn.primary { background: var(--blue); color: var(--paper); border-color: var(--blue) }
+.btn:hover { border-color: var(--blue) }
+.btns { display: flex; gap: 8px; flex-wrap: wrap }
+
+/* Results */
+.results { display: grid; gap: 12px; min-width: 0 }
+.results-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap }
+.status { font-size: .85rem; color: var(--muted) }
+.table-wrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 14px }
+table { border-collapse: collapse; width: 100%; min-width: 860px }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle }
+th { font: 600 .72rem/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); position: sticky; top: 0; background: var(--paper); z-index: 1 }
+tr:last-child td { border-bottom: 0 }
+tr.picked td { background: var(--blue-soft) }
+td.rank { font: 700 1.15rem var(--f-display); color: var(--muted); width: 48px }
+.balls { display: flex; gap: 5px; align-items: center; flex-wrap: nowrap }
+.ball { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 600 .85rem var(--f-mono); background: var(--blue-soft); color: var(--blue); border: 1.5px solid var(--blue); flex: none }
+.stari { width: 34px; height: 34px; display: grid; place-items: center; font: 700 .8rem var(--f-mono); color: #1A1300; background: var(--gold); flex: none;
+  clip-path: polygon(50% 0, 63% 33%, 98% 36%, 71% 58%, 80% 94%, 50% 75%, 20% 94%, 29% 58%, 2% 36%, 37% 33%) ; padding-top: 3px }
+.sep { width: 8px }
+.score { display: grid; gap: 4px; min-width: 110px }
+.score .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden }
+.score .bar i { display: block; height: 100%; background: var(--blue) }
+.score span { font: 600 .82rem var(--f-mono) }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; min-width: 200px; max-width: 240px }
+.chip { font: 500 .72rem/1 var(--f-body); padding: 4px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap }
+.chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, var(--line)) }
+.chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)) }
+.hist { font: 500 .78rem var(--f-mono); color: var(--muted); white-space: nowrap }
+.pick { width: 18px; height: 18px; accent-color: var(--blue); cursor: pointer }
+.iconbtn { appearance: none; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 6px; padding: 4px 8px; font: 600 .75rem var(--f-body); cursor: pointer }
+.iconbtn:hover { color: var(--blue); border-color: var(--blue) }
+
+.dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--paper); border-top: 1px solid var(--line);
+  display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; z-index: 5 }
+.dock .mono { font-size: .9rem }
+
+/* Analysis */
+.analysis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 10px; min-width: 0; align-content: start }
+.panel p { color: var(--muted); font-size: .9rem; max-width: 68ch }
+.chart { width: 100%; overflow-x: auto }
+.chart svg { display: block; width: 100%; height: auto; min-width: 480px }
+.chart text { fill: var(--muted); font: 500 10px var(--f-mono) }
+.chart .lbl { fill: var(--ink) }
+.method { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 12px }
+.method ol, .method ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 80ch; color: var(--muted) }
+.method b { color: var(--ink) }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(70px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: .85rem; z-index: 9 }
+@media (prefers-reduced-motion: no-preference) { .table-wrap tbody tr { transition: background .15s } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow" id="rango">Histórico EuroMillones</span>
+    <h1>Selector EuroMillones</h1>
+    <p class="lead">Analiza todos los sorteos desde febrero de 2004 y ordena combinaciones según los criterios que tú elijas: frecuencia, tendencia reciente, retraso, forma típica y lo poco que las juega el resto de la gente. Marca números en el boleto para fijarlos o descartarlos.</p>
+    <div class="odds">
+      <span class="eyebrow">Probabilidad real de cada combinación</span>
+      <strong>1 entre 139.838.160</strong>
+      <p>El sorteo es aleatorio: ninguna combinación tiene más probabilidad que otra, y el histórico lo confirma (ver análisis abajo). El índice ordena combinaciones por <b>parecido con el histórico</b>. El único criterio que mejora el premio esperado es «Evitar combinaciones populares», porque reduce la probabilidad de compartir el bote.</p>
+    </div>
+  </header>
+
+  <section class="facts" id="facts" aria-label="Datos clave"></section>
+
+  <section class="main">
+    <aside class="boleto" aria-label="Boleto y criterios">
+      <div class="boleto-head"><h3>Boleto</h3><span class="eyebrow">Toca: fijar → descartar → libre</span></div>
+      <div class="grid50" id="g50"></div>
+      <div class="grid12" id="g12"></div>
+      <div class="legend"><span><i style="background:rgba(var(--heat),.55)"></i>más veces premiado</span><span><i style="background:var(--blue)"></i>fijado</span><span><i style="border-style:dashed"></i>descartado</span></div>
+      <div class="controls">
+        <div class="ctl"><label for="wF">Frecuencia histórica</label><output id="oF"></output><input type="range" id="wF" min="0" max="100" value="50"><small>Premia los números y estrellas que más han salido desde 2004 (estrellas: desde 2016, con 12).</small></div>
+        <div class="ctl"><label for="wR">Tendencia reciente</label><output id="oR"></output><input type="range" id="wR" min="0" max="100" value="30"><small>Premia los que más han salido en los últimos sorteos.</small></div>
+        <div class="ctl"><label for="wD">Retraso</label><output id="oD"></output><input type="range" id="wD" min="0" max="100" value="10"><small>Premia los que llevan más sorteos sin salir.</small></div>
+        <div class="ctl"><label for="wS">Forma típica</label><output id="oS"></output><input type="range" id="wS" min="0" max="100" value="60"><small>Suma, pares/impares, bajos/altos, decenas y consecutivos parecidos a los sorteos reales.</small></div>
+        <div class="ctl"><label for="wP">Evitar combinaciones populares</label><output id="oP"></output><input type="range" id="wP" min="0" max="100" value="40"><small>Penaliza fechas (todo ≤31), series, mismas terminaciones y múltiplos de 5. No cambia la probabilidad de acertar, pero sí cuánto cobrarías.</small></div>
+        <div class="row">
+          <div><label for="nRec">Sorteos recientes</label><select id="nRec"><option>50</option><option>100</option><option selected>200</option><option>500</option></select></div>
+          <div><label for="nOut">Combinaciones</label><select id="nOut"><option selected>100</option><option>200</option><option>500</option></select></div>
+          <div><label for="maxSh">Máx. números en común</label><select id="maxSh"><option>2</option><option selected>3</option><option>4</option></select></div>
+        </div>
+        <div class="btns"><button class="btn primary" id="go">Recalcular</button><button class="btn" id="reset">Restablecer</button></div>
+      </div>
+    </aside>
+
+    <section class="results" aria-label="Combinaciones ordenadas">
+      <div class="results-head">
+        <div><h2 id="resTitle">Top 100 combinaciones</h2><p class="status" id="status">Calculando…</p></div>
+        <div class="btns"><button class="btn" id="copyAll">Copiar lista</button></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Elegir</th><th>Combinación</th><th>Índice</th><th>Perfil</th><th>Mejor acierto histórico</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+
+  <section class="analysis" aria-label="Análisis">
+    <div class="panel"><h3>Veces premiado cada número</h3><p id="capN"></p><div class="chart" id="chN"></div></div>
+    <div class="panel"><h3>Veces premiada cada estrella</h3><p id="capS"></p><div class="chart" id="chS"></div></div>
+    <div class="panel"><h3>¿Predicen algo los números «calientes»?</h3><p id="capB"></p><div class="chart" id="chB"></div></div>
+    <div class="panel"><h3>Suma de los 5 números</h3><p id="capSum"></p><div class="chart" id="chSum"></div></div>
+  </section>
+
+  <section class="method">
+    <h2>Cómo se calcula el índice</h2>
+    <ol>
+      <li><b>Datos.</b> <span id="mData"></span></li>
+      <li><b>Puntuación por número y estrella.</b> Para cada uno se calcula su desviación respecto a la media (z) en frecuencia histórica, frecuencia en los últimos N sorteos y sorteos de retraso.</li>
+      <li><b>Forma.</b> Se mide lo habitual que ha sido en el histórico cada rasgo de la combinación: suma (en tramos de 10), cuántos pares, cuántos ≤25, cuántas decenas distintas y cuántos consecutivos.</li>
+      <li><b>Popularidad.</b> Se estima cuánta gente juega combinaciones parecidas (fechas, series, terminaciones repetidas, múltiplos de 5, el 7 de la suerte) y se penaliza.</li>
+      <li><b>Combinación.</b> Cada criterio se normaliza contra 20.000 combinaciones al azar y se suma con tus pesos. Se evalúan las 2.118.760 combinaciones de 5 números posibles y se eligen las mejores, limitando cuántos números pueden compartir entre sí para que la lista sea variada. A cada una se le asignan las mejores parejas de estrellas, sin repetir demasiado ninguna.</li>
+      <li><b>Índice 0–100.</b> 0 equivale a una combinación media al azar y 100 a la mejor encontrada con tus criterios.</li>
+    </ol>
+    <p class="muted" style="max-width:80ch;font-size:.9rem">Lo que dice el análisis: las frecuencias de números (χ² p = <span id="pN"></span>) y estrellas (p = <span id="pS"></span>) son compatibles con un sorteo perfectamente aleatorio, y elegir los números más frecuentes antes de cada sorteo acierta lo mismo que elegir al azar. Úsalo para elegir combinaciones con criterio y evitar las más jugadas, no como garantía de premio. Juega con moderación.</p>
+  </section>
+</div>
+
+<div class="dock" id="dock"><span class="mono" id="dockTxt">0 elegidas</span><button class="btn" id="copyPicked">Copiar elegidas</button><button class="btn" id="clearPicked">Vaciar</button></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const RAW = "/*DATA*/";
+const ERA12 = "2016-09-27";
+const draws = RAW.split(";").map(r => { const v = r.split(" "); return { d: v[0], n: v.slice(1, 6).map(Number), s: v.slice(6, 8).map(Number) }; });
+const era12 = draws.filter(x => x.d >= ERA12);
+const $ = id => document.getElementById(id);
+const fmt = (x, d = 0) => x.toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
+const fdate = s => s.split("-").reverse().join("/");
+const comb = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return Math.round(r); };
+
+/* ---------- Statistics ---------- */
+function counts(list, key, max) { const c = new Array(max + 1).fill(0); for (const x of list) for (const v of x[key]) c[v]++; return c; }
+function delays(list, key, max) { const d = new Array(max + 1).fill(list.length); list.forEach((x, i) => x[key].forEach(v => d[v] = list.length - 1 - i)); return d; }
+function z(arr, from, to) {
+  const v = arr.slice(from, to + 1), m = v.reduce((a, b) => a + b, 0) / v.length;
+  const sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length) || 1;
+  return arr.map((x, i) => i < from ? 0 : (x - m) / sd);
+}
+const fN = counts(draws, "n", 50), fS = counts(era12, "s", 12);
+const dN = delays(draws, "n", 50), dS = delays(era12, "s", 12);
+
+// chi-square survival function (regularised upper incomplete gamma)
+function chi2sf(x, k) {
+  const a = k / 2, x2 = x / 2, lg = lgamma(a);
+  if (x2 < a + 1) { let t = 1 / a, s = t, n = a; while (Math.abs(t) > 1e-14 * s) { n++; t *= x2 / n; s += t; } return 1 - s * Math.exp(-x2 + a * Math.log(x2) - lg); }
+  let b = x2 + 1 - a, c = 1e300, d = 1 / b, h = d;
+  for (let i = 1; i < 300; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300; c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; h *= d * c; if (Math.abs(d * c - 1) < 1e-14) break; }
+  return Math.exp(-x2 + a * Math.log(x2) - lg) * h;
+}
+function lgamma(x) { const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, .1208650973866179e-2, -.5395239384953e-5]; let y = x, t = x + 5.5; t -= (x + .5) * Math.log(t); let s = 1.000000000190015; for (const c of g) s += c / ++y; return -t + Math.log(2.5066282746310005 * s / x); }
+function chi(c, from, to) { const v = c.slice(from, to + 1), e = v.reduce((a, b) => a + b, 0) / v.length; const x = v.reduce((a, b) => a + (b - e) ** 2 / e, 0); return chi2sf(x, v.length - 1); }
+
+// Shape features
+function shape(n) {
+  let ev = 0, lo = 0, cons = 0, sum = 0; const dec = new Set(), last = new Array(10).fill(0); let m5 = 0;
+  for (let i = 0; i < 5; i++) { const v = n[i]; sum += v; if (v % 2 === 0) ev++; if (v <= 25) lo++; dec.add((v - 1) / 10 | 0); last[v % 10]++; if (v % 5 === 0) m5++; if (i && v - n[i - 1] === 1) cons++; }
+  return { ev, lo, cons, sum, dec: dec.size, maxLast: Math.max(...last), m5 };
+}
+const shapes = draws.map(x => shape([...x.n].sort((a, b) => a - b)));
+function logTable(key, size) { const c = new Array(size).fill(1); for (const s of shapes) c[key(s)]++; const t = c.reduce((a, b) => a + b, 0); return c.map(v => Math.log(v / t)); }
+const LT = { ev: logTable(s => s.ev, 6), lo: logTable(s => s.lo, 6), cons: logTable(s => s.cons, 5), dec: logTable(s => s.dec, 6), sum: logTable(s => Math.min(24, s.sum / 10 | 0), 25) };
+const shapeScore = s => LT.ev[s.ev] + LT.lo[s.lo] + LT.cons[Math.min(4, s.cons)] + LT.dec[s.dec] + LT.sum[Math.min(24, s.sum / 10 | 0)];
+function popularity(n, s) {
+  let p = 0; const sh = shape(n), le31 = n.filter(v => v <= 31).length;
+  if (le31 === 5) p += 2; else if (le31 === 4) p += .7;
+  p += .6 * sh.cons;
+  const d = n[1] - n[0]; if (n.every((v, i) => !i || v - n[i - 1] === d)) p += 3;
+  if (sh.maxLast >= 3) p += .8 * (sh.maxLast - 2);
+  if (sh.m5 >= 3) p += .6 * (sh.m5 - 2);
+  if (n.includes(7)) p += .25;
+  if (s && s.includes(7)) p += .25;
+  return p;
+}
+
+// Allocation-free versions for the 2.1M-combination loop (n sorted ascending)
+const LASTD = new Int8Array(10);
+function fastShape(n) {
+  let ev = 0, lo = 0, cons = 0, sum = 0, dm = 0;
+  for (let i = 0; i < 5; i++) { const v = n[i]; sum += v; ev += (v & 1) ^ 1; lo += v <= 25; dm |= 1 << ((v - 1) / 10 | 0); if (i && v - n[i - 1] === 1) cons++; }
+  const dec = (dm & 1) + (dm >> 1 & 1) + (dm >> 2 & 1) + (dm >> 3 & 1) + (dm >> 4 & 1);
+  return LT.ev[ev] + LT.lo[lo] + LT.cons[cons > 4 ? 4 : cons] + LT.dec[dec] + LT.sum[Math.min(24, sum / 10 | 0)];
+}
+function fastPop(n) {
+  let p = 0, le31 = 0, cons = 0, m5 = 0, maxLast = 0, has7 = 0; LASTD.fill(0);
+  const d = n[1] - n[0]; let ap = true;
+  for (let i = 0; i < 5; i++) { const v = n[i]; le31 += v <= 31; if (v % 5 === 0) m5++; if (v === 7) has7 = 1; const l = ++LASTD[v % 10]; if (l > maxLast) maxLast = l; if (i) { if (v - n[i - 1] === 1) cons++; if (v - n[i - 1] !== d) ap = false; } }
+  if (le31 === 5) p += 2; else if (le31 === 4) p += .7;
+  p += .6 * cons; if (ap) p += 3; if (maxLast >= 3) p += .8 * (maxLast - 2); if (m5 >= 3) p += .6 * (m5 - 2); if (has7) p += .25;
+  return p;
+}
+
+/* ---------- Deterministic RNG ---------- */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const SAMPLE = (() => { const r = rng(2004), out = []; for (let i = 0; i < 20000; i++) { const set = new Set(); while (set.size < 5) set.add(1 + (r() * 50 | 0)); out.push([...set].sort((a, b) => a - b)); } return out; })();
+
+/* ---------- State ---------- */
+const DEF = { wF: 50, wR: 30, wD: 10, wS: 60, wP: 40, nRec: "200", nOut: "100", maxSh: "3" };
+const numSt = new Array(51).fill(0), starSt = new Array(13).fill(0);
+let picked = new Set();
+try { picked = new Set(JSON.parse(localStorage.getItem("em-picked") || "[]")); } catch (e) {}
+const savePicked = () => { try { localStorage.setItem("em-picked", JSON.stringify([...picked])); } catch (e) {} };
+let current = [];
+
+/* ---------- Boleto ---------- */
+function buildBoleto() {
+  const maxN = Math.max(...fN.slice(1)), minN = Math.min(...fN.slice(1));
+  const maxS = Math.max(...fS.slice(1)), minS = Math.min(...fS.slice(1));
+  const g50 = $("g50"), g12 = $("g12");
+  for (let k = 1; k <= 50; k++) {
+    const b = document.createElement("button"); b.className = "cell"; b.textContent = k; b.id = "n" + k; b.dataset.st = 0;
+    b.style.setProperty("--h", (.06 + .6 * (fN[k] - minN) / (maxN - minN)).toFixed(2));
+    b.title = `${k}: ${fN[k]} veces · ${dN[k]} sorteos sin salir`;
+    b.onclick = () => { numSt[k] = numSt[k] === 0 ? 1 : numSt[k] === 1 ? -1 : 0; if (numSt.filter(v => v === 1).length > 4) numSt[k] = -1; b.dataset.st = numSt[k]; schedule(); };
+    g50.appendChild(b);
+  }
+  for (let k = 1; k <= 12; k++) {
+    const b = document.createElement("button"); b.className = "cell star"; b.textContent = k; b.id = "s" + k; b.dataset.st = 0;
+    b.style.setProperty("--h", (.08 + .55 * (fS[k] - minS) / (maxS - minS)).toFixed(2));
+    b.title = `Estrella ${k}: ${fS[k]} veces desde 2016 · ${dS[k]} sorteos sin salir`;
+    b.onclick = () => { starSt[k] = starSt[k] === 0 ? 1 : starSt[k] === 1 ? -1 : 0; if (starSt.filter(v => v === 1).length > 2) starSt[k] = -1; b.dataset.st = starSt[k]; schedule(); };
+    g12.appendChild(b);
+  }
+}
+
+/* ---------- Engine ---------- */
+function params() { const o = {}; for (const k of Object.keys(DEF)) o[k] = $(k).value; return o; }
+
+function generate() {
+  const P = params(), w = { F: P.wF / 100, R: P.wR / 100, D: P.wD / 100, S: P.wS / 100, P: P.wP / 100 };
+  const N = +P.nOut, maxSh = +P.maxSh, nRec = +P.nRec;
+  const rec = draws.slice(-nRec);
+  const zF = z(fN, 1, 50), zR = z(counts(rec, "n", 50), 1, 50), zD = z(dN, 1, 50);
+  const recS = era12.slice(-nRec);
+  const sF = z(fS, 1, 12), sR = z(counts(recS, "s", 12), 1, 12), sD = z(dS, 1, 12);
+
+  // Normalise each combo-level criterion against a uniform random sample
+  const crit = n => { let F = 0, R = 0, D = 0; for (const v of n) { F += zF[v]; R += zR[v]; D += zD[v]; } return [F, R, D, fastShape(n), -fastPop(n)]; };
+  const mu = [0, 0, 0, 0, 0], sd = [0, 0, 0, 0, 0];
+  const sc = SAMPLE.map(crit);
+  for (const c of sc) c.forEach((v, i) => mu[i] += v / sc.length);
+  for (const c of sc) c.forEach((v, i) => sd[i] += (v - mu[i]) ** 2 / sc.length);
+  sd.forEach((v, i) => sd[i] = Math.sqrt(v) || 1);
+  const W = [w.F, w.R, w.D, w.S, w.P];
+  const total = c => c.reduce((a, v, i) => a + W[i] * (v - mu[i]) / sd[i], 0);
+  const sampleTotals = sc.map(total);
+  const sampleMean = sampleTotals.reduce((a, b) => a + b, 0) / sampleTotals.length;
+
+  // Per-number contribution so the 5-number score is additive except for shape/popularity
+  const u = new Float64Array(51);
+  for (let k = 1; k <= 50; k++) u[k] = w.F * zF[k] / sd[0] + w.R * zR[k] / sd[1] + w.D * zD[k] / sd[2];
+  const off = -(w.F * mu[0] / sd[0] + w.R * mu[1] / sd[1] + w.D * mu[2] / sd[2]);
+  const inc = []; for (let k = 1; k <= 50; k++) if (numSt[k] === 1) inc.push(k);
+  const allowed = []; for (let k = 1; k <= 50; k++) if (numSt[k] !== -1) allowed.push(k);
+
+  // Enumerate every 5-number combination; keep the best few thousand
+  const CAP = 24000, keep = []; let thr = -Infinity;
+  const L = allowed.length, n = [0, 0, 0, 0, 0];
+  for (let a = 0; a < L; a++) for (let b = a + 1; b < L; b++) for (let c = b + 1; c < L; c++) {
+    const ua = u[allowed[a]] + u[allowed[b]] + u[allowed[c]];
+    for (let d = c + 1; d < L; d++) { const ub = ua + u[allowed[d]];
+      for (let e = d + 1; e < L; e++) {
+        n[0] = allowed[a]; n[1] = allowed[b]; n[2] = allowed[c]; n[3] = allowed[d]; n[4] = allowed[e];
+        if (inc.length && !inc.every(v => v === n[0] || v === n[1] || v === n[2] || v === n[3] || v === n[4])) continue;
+        const t = ub + u[n[4]] + off + (w.S ? w.S * (fastShape(n) - mu[3]) / sd[3] : 0) + (w.P ? w.P * (-fastPop(n) - mu[4]) / sd[4] : 0);
+        if (t <= thr) continue;
+        keep.push([t, n.slice()]);
+        if (keep.length >= CAP * 2) { keep.sort((x, y) => y[0] - x[0]); keep.length = CAP; thr = keep[CAP - 1][0]; }
+      }
+    }
+  }
+  keep.sort((x, y) => (y[0] - x[0]) || (x[1].join() < y[1].join() ? -1 : 1));
+
+  // Greedy diverse selection
+  const chosen = [];
+  for (const k of keep) {
+    if (chosen.length >= N) break;
+    const s = new Set(k[1]);
+    const lim = Math.max(maxSh, inc.length);
+    if (chosen.every(c => c[1].reduce((a, v) => a + s.has(v), 0) <= lim)) chosen.push(k);
+  }
+
+  // Star pairs
+  const su = new Float64Array(13);
+  for (let k = 1; k <= 12; k++) su[k] = w.F * sF[k] + w.R * sR[k] + w.D * sD[k];
+  const sInc = []; for (let k = 1; k <= 12; k++) if (starSt[k] === 1) sInc.push(k);
+  const pairs = [];
+  for (let a = 1; a <= 12; a++) for (let b = a + 1; b <= 12; b++) {
+    if (starSt[a] === -1 || starSt[b] === -1) continue;
+    if (!sInc.every(v => v === a || v === b)) continue;
+    pairs.push([su[a] + su[b] - (b === 7 || a === 7 ? .25 * w.P : 0), [a, b]]);
+  }
+  pairs.sort((x, y) => y[0] - x[0]);
+  const ps = pairs.map(p => p[0]), pm = ps.reduce((a, b) => a + b, 0) / ps.length, psd = Math.sqrt(ps.reduce((a, b) => a + (b - pm) ** 2, 0) / ps.length) || 1;
+  const limit = Math.max(2, Math.ceil(chosen.length / Math.min(pairs.length, 25)));
+  const used = new Map();
+  const out = chosen.map(([t, nums]) => {
+    let pick = pairs[0];
+    for (const p of pairs) { if ((used.get(p[1].join()) || 0) < limit) { pick = p; break; } }
+    used.set(pick[1].join(), (used.get(pick[1].join()) || 0) + 1);
+    const ws = (w.F + w.R + w.D) ? (pick[0] - pm) / psd * .6 : 0;
+    return { n: nums, s: pick[1], t: t + ws };
+  });
+  out.sort((a, b) => b.t - a.t);
+  const best = out.length ? out[0].t : 1;
+  for (const o of out) {
+    o.idx = Math.max(0, Math.min(100, 100 * (o.t - sampleMean) / ((best - sampleMean) || 1)));
+    o.sh = shape(o.n); o.pop = popularity(o.n, o.s);
+    let bn = -1, bs = -1, bd = "";
+    for (const d of draws) { let hn = 0, hs = 0; for (const v of d.n) if (o.n.includes(v)) hn++; for (const v of d.s) if (o.s.includes(v)) hs++; if (hn > bn || (hn === bn && hs > bs)) { bn = hn; bs = hs; bd = d.d; } }
+    o.best = { n: bn, s: bs, d: bd };
+  }
+  return { out, N };
+}
+
+/* ---------- Render ---------- */
+const key = o => o.n.join("-") + "|" + o.s.join("-");
+const txt = o => o.n.join(" ") + "  ★ " + o.s.join(" ");
+function render(res) {
+  const { out, N } = res;
+  current = out;
+  $("resTitle").textContent = `Top ${out.length} combinaciones`;
+  $("status").textContent = out.length < N
+    ? `Solo ${out.length} cumplen tus filtros con «máx. ${$("maxSh").value} en común». Sube ese valor para ver más.`
+    : `Ordenadas de mayor a menor índice según tus criterios · ${fmt(comb(50, 5))} combinaciones evaluadas.`;
+  const rows = out.map((o, i) => {
+    const k = key(o), on = picked.has(k);
+    const chips = [];
+    chips.push(`<span class="chip">Σ ${o.sh.sum}</span>`, `<span class="chip">${o.sh.ev}P/${5 - o.sh.ev}I</span>`, `<span class="chip">${o.sh.lo}B/${5 - o.sh.lo}A</span>`);
+    chips.push(o.pop < .5 ? `<span class="chip good">poco jugada</span>` : o.pop > 1.5 ? `<span class="chip bad">muy jugada</span>` : `<span class="chip">jugada media</span>`);
+    return `<tr class="${on ? "picked" : ""}" data-k="${k}">
+      <td class="rank">${i + 1}</td>
+      <td><input type="checkbox" class="pick" id="p${i}" aria-label="Elegir combinación ${i + 1}" ${on ? "checked" : ""}></td>
+      <td><div class="balls">${o.n.map(v => `<span class="ball">${v}</span>`).join("")}<span class="sep"></span>${o.s.map(v => `<span class="stari">${v}</span>`).join("")}</div></td>
+      <td><div class="score"><span>${fmt(o.idx, 1)}</span><div class="bar"><i style="width:${o.idx.toFixed(1)}%"></i></div></div></td>
+      <td><div class="chips">${chips.join("")}</div></td>
+      <td class="hist">${o.best.n}+${o.best.s} · ${fdate(o.best.d)}</td>
+      <td><button class="iconbtn" data-copy="${i}">Copiar</button></td></tr>`;
+  });
+  $("tbody").innerHTML = rows.join("");
+  dock();
+}
+function dock() { $("dockTxt").textContent = `${picked.size} elegida${picked.size === 1 ? "" : "s"}`; }
+
+let timer;
+function schedule() { $("status").textContent = "Calculando…"; clearTimeout(timer); timer = setTimeout(() => render(generate()), 30); }
+
+function toast(m) { const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 1800); }
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("Copiado"); }
+  catch (e) { const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); toast("Copiado"); } catch (_) { toast("Selecciona y copia manualmente"); } ta.remove(); }
+}
+
+/* ---------- Charts (SVG) ---------- */
+function barChart(el, labels, values, opt = {}) {
+  const W = 760, H = 220, ml = 34, mr = 8, mt = 14, mb = 28;
+  const n = values.length, max = (opt.max || Math.max(...values)) * 1.08, min = opt.min ?? 0;
+  const bw = (W - ml - mr) / n, y = v => mt + (H - mt - mb) * (1 - (v - min) / (max - min));
+  const ticks = []; const step = opt.step || Math.pow(10, Math.floor(Math.log10(max - min))) / (max - min < 3 * Math.pow(10, Math.floor(Math.log10(max - min))) ? 2 : 1);
+  for (let t = Math.ceil(min / step) * step; t <= max; t += step) ticks.push(t);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opt.aria || ""}">`;
+  for (const t of ticks) s += `<line x1="${ml}" x2="${W - mr}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/><text x="${ml - 6}" y="${y(t) + 3}" text-anchor="end">${opt.tf ? opt.tf(t) : t}</text>`;
+  values.forEach((v, i) => {
+    const x = ml + i * bw + bw * .14, h = y(min) - y(v), col = opt.color ? opt.color(i, v) : "var(--blue)";
+    s += `<rect x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${(bw * .72).toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="2" fill="${col}"><title>${labels[i]}: ${opt.tf ? opt.tf(v) : v}</title></rect>`;
+    if (!opt.every || i % opt.every === 0 || opt.labelAll) s += `<text x="${(ml + i * bw + bw / 2).toFixed(1)}" y="${H - mb + 14}" text-anchor="middle" class="${opt.lblClass || ""}">${labels[i]}</text>`;
+    if (opt.valueLabels) s += `<text x="${(ml + i * bw + bw / 2).toFixed(1)}" y="${(y(v) - 5).toFixed(1)}" text-anchor="middle" class="lbl">${opt.tf ? opt.tf(v) : v}</text>`;
+  });
+  if (opt.ref != null) s += `<line x1="${ml}" x2="${W - mr}" y1="${y(opt.ref)}" y2="${y(opt.ref)}" stroke="var(--ink)" stroke-dasharray="4 4" stroke-width="1.2"/><text x="${W - mr}" y="${y(opt.ref) - 5}" text-anchor="end" class="lbl">${opt.refLabel}</text>`;
+  el.innerHTML = s + "</svg>";
+}
+
+function backtest() {
+  const acc = new Array(51).fill(0), res = { hot: 0, rec: 0, cold: 0, rnd: 0 }; const r = rng(42); let n = 0;
+  draws.forEach((d, i) => {
+    if (i >= 500) {
+      const real = new Set(d.n), ord = Array.from({ length: 50 }, (_, k) => k + 1);
+      const hot = [...ord].sort((a, b) => acc[b] - acc[a] || a - b).slice(0, 5);
+      const cold = [...ord].sort((a, b) => acc[a] - acc[b] || a - b).slice(0, 5);
+      const rc = new Array(51).fill(0); for (const x of draws.slice(i - 50, i)) for (const v of x.n) rc[v]++;
+      const rh = [...ord].sort((a, b) => rc[b] - rc[a] || a - b).slice(0, 5);
+      const rn = new Set(); while (rn.size < 5) rn.add(1 + (r() * 50 | 0));
+      res.hot += hot.filter(v => real.has(v)).length; res.cold += cold.filter(v => real.has(v)).length;
+      res.rec += rh.filter(v => real.has(v)).length; res.rnd += [...rn].filter(v => real.has(v)).length; n++;
+    }
+    for (const v of d.n) acc[v]++;
+  });
+  return { n, hot: res.hot / n, rec: res.rec / n, cold: res.cold / n, rnd: res.rnd / n };
+}
+
+function analysis() {
+  const first = draws[0].d, last = draws[draws.length - 1];
+  $("rango").textContent = `${fmt(draws.length)} sorteos · ${fdate(first)} – ${fdate(last.d)}`;
+  const pN = chi(fN, 1, 50), pS = chi(fS, 1, 12), bt = backtest();
+  const seen = new Set(), seenFull = new Set(); let rep5 = 0, repFull = 0;
+  for (const d of draws) { const a = [...d.n].sort((x, y) => x - y).join(), b = a + "|" + [...d.s].sort((x, y) => x - y).join(); if (seen.has(a)) rep5++; if (seenFull.has(b)) repFull++; seen.add(a); seenFull.add(b); }
+  $("facts").innerHTML = [
+    [fmt(draws.length), `sorteos analizados, del ${fdate(first)} al ${fdate(last.d)}`],
+    [`${last.n.join(" ")} ★ ${last.s.join(" ")}`, `último sorteo (${fdate(last.d)})`],
+    [`p = ${fmt(pN, 2)}`, "χ² de los 50 números: compatible con azar puro (p > 0,05)"],
+    [`${fmt(bt.hot, 3)} vs ${fmt(.5, 3)}`, `aciertos medios por sorteo eligiendo los 5 más frecuentes frente al azar (${fmt(bt.n)} sorteos)`],
+    [repFull ? fmt(repFull) : "0", `combinaciones ganadoras completas repetidas en ${new Date(last.d).getFullYear() - 2003} años (los 5 números sí se han repetido ${rep5 === 1 ? "1 vez" : rep5 + " veces"}, con otras estrellas)`],
+  ].map(([b, s]) => `<div class="fact"><b>${b}</b><span>${s}</span></div>`).join("");
+  $("pN").textContent = fmt(pN, 2); $("pS").textContent = fmt(pS, 2);
+  $("mData").textContent = `${fmt(draws.length)} sorteos del ${fdate(first)} al ${fdate(last.d)}. Las estrellas se analizan desde el ${fdate(ERA12)} (${fmt(era12.length)} sorteos), cuando pasaron a ser 12.`;
+
+  const mean = fN.slice(1).reduce((a, b) => a + b, 0) / 50;
+  const order = Array.from({ length: 50 }, (_, k) => k + 1).sort((a, b) => fN[b] - fN[a]);
+  const top3 = order.slice(0, 3), bot3 = order.slice(-3);
+  $("capN").textContent = `Media ${fmt(mean, 1)} veces. Más: ${top3.map(k => `${k} (${fN[k]})`).join(", ")}. Menos: ${bot3.map(k => `${k} (${fN[k]})`).join(", ")}. Las diferencias están dentro de lo esperable por azar (p = ${fmt(pN, 2)}).`;
+  const lab = Array.from({ length: 50 }, (_, k) => k + 1);
+  barChart($("chN"), lab, fN.slice(1), { min: Math.floor(Math.min(...fN.slice(1)) * .9 / 10) * 10, step: 20, every: 5, ref: mean, refLabel: "media", aria: "Frecuencia de cada número",
+    color: (i, v) => top3.includes(i + 1) ? "var(--blue)" : bot3.includes(i + 1) ? "var(--muted)" : "color-mix(in srgb, var(--blue) 55%, var(--line))" });
+  const sm = fS.slice(1).reduce((a, b) => a + b, 0) / 12;
+  $("capS").textContent = `Desde el ${fdate(ERA12)}. Media ${fmt(sm, 1)} veces; la pareja más repetida es ${(() => { const c = {}; for (const d of era12) { const k = [...d.s].sort((a, b) => a - b).join("–"); c[k] = (c[k] || 0) + 1; } const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return `${t[0]} (${t[1]} veces)`; })()}. p = ${fmt(pS, 2)}.`;
+  barChart($("chS"), Array.from({ length: 12 }, (_, k) => k + 1), fS.slice(1), { min: 0, step: 50, labelAll: true, valueLabels: true, ref: sm, refLabel: "media", aria: "Frecuencia de cada estrella", color: () => "var(--gold)" });
+  $("capB").textContent = `Antes de cada uno de los últimos ${fmt(bt.n)} sorteos se eligieron 5 números con cada estrategia y se contaron los aciertos. El azar da 0,5 aciertos de media; ninguna estrategia lo supera de forma significativa.`;
+  barChart($("chB"), ["Más frecuentes", "Calientes (50)", "Fríos", "Al azar"], [bt.hot, bt.rec, bt.cold, bt.rnd], { min: 0, max: .6, step: .1, labelAll: true, valueLabels: true, tf: v => fmt(v, 2), ref: .5, refLabel: "esperado por azar 0,50", aria: "Backtest de estrategias", lblClass: "lbl" });
+  const bins = new Array(19).fill(0); for (const s of shapes) bins[Math.min(18, Math.max(0, (s.sum - 30) / 10 | 0))]++;
+  const ss = shapes.map(s => s.sum).sort((a, b) => a - b);
+  $("capSum").textContent = `Media ${fmt(ss.reduce((a, b) => a + b, 0) / ss.length, 1)}. El 80 % de los sorteos suma entre ${ss[ss.length / 10 | 0]} y ${ss[9 * ss.length / 10 | 0]}. Las sumas centrales son más frecuentes porque contienen más combinaciones, no porque cada una sea más probable.`;
+  barChart($("chSum"), bins.map((_, i) => `${30 + i * 10}`), bins, { min: 0, step: 50, every: 2, aria: "Distribución de la suma" });
+}
+
+/* ---------- Wire up ---------- */
+for (const k of ["wF", "wR", "wD", "wS", "wP"]) { const sync = () => $("o" + k[1]).textContent = $(k).value; $(k).addEventListener("input", sync); $(k).addEventListener("change", schedule); sync(); }
+for (const k of ["nRec", "nOut", "maxSh"]) $(k).addEventListener("change", schedule);
+$("go").onclick = schedule;
+$("reset").onclick = () => {
+  for (const [k, v] of Object.entries(DEF)) $(k).value = v;
+  for (const k of ["wF", "wR", "wD", "wS", "wP"]) $("o" + k[1]).textContent = $(k).value;
+  numSt.fill(0); starSt.fill(0); document.querySelectorAll(".cell").forEach(c => c.dataset.st = 0); schedule();
+};
+$("tbody").addEventListener("change", e => {
+  if (!e.target.classList.contains("pick")) return;
+  const tr = e.target.closest("tr"), k = tr.dataset.k;
+  if (e.target.checked) picked.add(k); else picked.delete(k);
+  tr.classList.toggle("picked", e.target.checked); savePicked(); dock();
+});
+$("tbody").addEventListener("click", e => { const b = e.target.closest("[data-copy]"); if (b) copy(txt(current[+b.dataset.copy])); });
+$("copyAll").onclick = () => copy(current.map((o, i) => `${i + 1}. ${txt(o)}`).join("\n"));
+$("copyPicked").onclick = () => { if (!picked.size) return toast("Marca alguna combinación primero"); copy([...picked].map(k => { const [n, s] = k.split("|"); return n.split("-").join(" ") + "  ★ " + s.split("-").join(" "); }).join("\n")); };
+$("clearPicked").onclick = () => { picked.clear(); savePicked(); document.querySelectorAll(".pick").forEach(c => { c.checked = false; c.closest("tr").classList.remove("picked"); }); dock(); };
+
+buildBoleto();
+analysis();
+schedule();
+</script>
